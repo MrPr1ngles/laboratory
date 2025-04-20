@@ -1,0 +1,14 @@
+{
+    "project_name": "SequenceDataStructure",
+    "author": "Your Name",
+    "version": "1.0.0",
+    "description": "A project implementing dynamic arrays, linked lists, and sequences with mutable and immutable variants.",
+    "build_commands": {
+        "compile": "make",
+        "clean": "make clean"
+    },
+    "dependencies": {
+        "compiler": "g++",
+        "standard": "c++11"
+    }
+}

@@ -1,0 +1,16 @@
+#ifndef POLYNOMIALERRORS_H
+#define POLYNOMIALERRORS_H
+
+typedef enum {
+    POLYNOMIAL_OPERATION_OK ,
+    MEMORY_ALLOCATION_FAILED ,
+    POLYNOMIAL_NOT_DEFINED ,
+    OPERATION_NOT_DEFINED ,
+    INCOMPATIBLE_POLYNOMIAL_TYPES ,
+    INVALID_ARGUMENTS ,
+    SCALAR_NOT_DEFINED
+} PolynomialErrors;
+
+const char* polynomialErrorToString(PolynomialErrors error);
+
+#endif // POLYNOMIALERRORS_H
