@@ -1,4 +1,3 @@
-// LinkedList.hpp
 #ifndef LINKEDLIST_HPP
 #define LINKEDLIST_HPP
 
@@ -37,7 +36,6 @@ public:
     Option<T> TryFirst() const;
     Option<T> TryLast() const;
 
-    // Iterator
     class Iterator {
         Node* current;
     public:
@@ -181,4 +179,4 @@ Option<T> LinkedList<T>::TryLast() const {
     return Option<T>::Some(cur->data);
 }
 
-#endif // LINKEDLIST_HPP
+#endif 

@@ -6,7 +6,7 @@
             "type": "shell",
             "command": "g++",
             "args": [
-                "-g",                    // Включить символы отладки
+                "-g",                    
                 "${workspaceFolder}/main.cpp",
                 "-o",
                 "${workspaceFolder}/project.exe"

@@ -1,8 +1,7 @@
-# Компилятор и флаги
+
 CXX = g++
 CXXFLAGS = -std=c++11 -Wall -Wextra -g
 
-# Основной проект
 MAIN_SRCS = main.cpp UI.cpp
 MAIN_OBJS = $(MAIN_SRCS:.cpp=.o)
 MAIN_TARGET = lab
@@ -12,6 +11,7 @@ TEST_OBJS = $(TEST_SRCS:.cpp=.o)
 TEST_TARGET = tests
 
 .PHONY: all clean run test
+
 
 all: $(MAIN_TARGET) $(TEST_TARGET)
 

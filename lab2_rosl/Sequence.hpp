@@ -1,4 +1,3 @@
-// Sequence.hpp
 #ifndef SEQUENCE_HPP
 #define SEQUENCE_HPP
 
@@ -24,4 +23,4 @@ public:
     virtual Option<T> TryLast()     const = 0;
 };
 
-#endif // SEQUENCE_HPP
+#endif 
