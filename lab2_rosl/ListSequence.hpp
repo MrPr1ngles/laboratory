@@ -3,8 +3,7 @@
 
 #include "Sequence.hpp"
 #include "LinkedList.hpp"
-#include "Option.hpp"
-#include <stdexcept>
+#include "Error.hpp"
 
 template <typename T> class MutableListSequence;
 template <typename T> class ImmutableListSequence;
@@ -14,108 +13,115 @@ class ListSequence : public Sequence<T> {
 protected:
     LinkedList<T>* list;
 public:
-    ListSequence(T* itemsArray, int count) {
-        list = new LinkedList<T>(itemsArray, count);
+    ListSequence(T* arr, int count) {
+        list = new LinkedList<T>(arr, count);
     }
     ListSequence(const LinkedList<T>& linkedList) {
         list = new LinkedList<T>(linkedList);
     }
-    ListSequence(const ListSequence<T>& other) {
-        list = new LinkedList<T>(*other.list);
+    ListSequence(const ListSequence<T>& o) {
+        list = new LinkedList<T>(*o.list);
     }
-    virtual ~ListSequence() {
+    ~ListSequence() override {
         delete list;
     }
 
-    virtual T GetFirst() const override {
-        return list->GetFirst();
-    }
-    virtual T GetLast() const override {
-        return list->GetLast();
-    }
-    virtual T Get(int index) const override {
-        return list->Get(index);
-    }
-    virtual int GetLength() const override {
-        return list->GetLength();
-    }
+    T GetFirst() const override       { return list->GetFirst(); }
+    T GetLast()  const override       { return list->GetLast(); }
+    T Get(int i) const override       { return list->Get(i); }
+    int GetLength() const override    { return list->GetLength(); }
 
-    virtual Sequence<T>* GetSubsequence(int startIndex, int endIndex) const override {
-        LinkedList<T>* sub = list->GetSubList(startIndex, endIndex);
-        Sequence<T>* seq = new MutableListSequence<T>(*sub);
+    Sequence<T>* GetSubsequence(int a, int b) const override {
+        LinkedList<T>* sub = list->GetSubList(a, b);
+        auto* seq = new MutableListSequence<T>(*sub);
         delete sub;
         return seq;
     }
 
-    virtual Option<T> TryGet(int index) const override {
-        return list->TryGet(index);
-    }
-    virtual Option<T> TryFirst() const override {
-        return list->TryFirst();
-    }
-    virtual Option<T> TryLast() const override {
-        return list->TryLast();
+    Option<T> TryGet(int i)   const override { return list->TryGet(i); }
+    Option<T> TryFirst()      const override { return list->TryFirst(); }
+    Option<T> TryLast()       const override { return list->TryLast(); }
+
+    Sequence<T>* RemoveAt(int idx) override {
+        int L = list->GetLength();
+        if (idx < 0 || idx >= L) throw Errors[INDEX_OUT_OF_RANGE].message;
+        LinkedList<T>* newl = new LinkedList<T>();
+        for (int i = 0; i < L; ++i) {
+            if (i != idx) newl->Append(list->Get(i));
+        }
+        delete list;
+        list = newl;
+        return this;
     }
 
-    virtual Sequence<T>* Append(T item) override = 0;
-    virtual Sequence<T>* Prepend(T item) override = 0;
-    virtual Sequence<T>* InsertAt(T item, int index) override = 0;
-    virtual Sequence<T>* Concat(const Sequence<T>* seq) const override = 0;
+    Sequence<T>* Append(T) override = 0;
+    Sequence<T>* Prepend(T) override = 0;
+    Sequence<T>* InsertAt(T, int) override = 0;
+    Sequence<T>* Concat(const Sequence<T>*) const override = 0;
 };
 
 template <typename T>
 class MutableListSequence : public ListSequence<T> {
 public:
-    using ListSequence<T>::ListSequence;
+    MutableListSequence(T* arr, int count)
+      : ListSequence<T>(arr, count) {}
+    MutableListSequence(const LinkedList<T>& linkedList)
+      : ListSequence<T>(linkedList) {}
+    MutableListSequence(const MutableListSequence<T>& o)
+      : ListSequence<T>(o) {}
 
-    virtual Sequence<T>* Append(T item) override {
-        this->list->Append(item);
+    Sequence<T>* Append(T v) override {
+        this->list->Append(v);
         return this;
     }
-    virtual Sequence<T>* Prepend(T item) override {
-        this->list->Prepend(item);
+    Sequence<T>* Prepend(T v) override {
+        this->list->Prepend(v);
         return this;
     }
-    virtual Sequence<T>* InsertAt(T item, int index) override {
-        this->list->InsertAt(item, index);
+    Sequence<T>* InsertAt(T v, int idx) override {
+        this->list->InsertAt(v, idx);
         return this;
     }
-    virtual Sequence<T>* Concat(const Sequence<T>* seq) const override {
-        auto* result = new MutableListSequence<T>(*this);
-        for (int i = 0; i < seq->GetLength(); ++i) {
-            result->list->Append(seq->Get(i));
+    Sequence<T>* Concat(const Sequence<T>* o) const override {
+        for (int i = 0; i < o->GetLength(); ++i) {
+            this->list->Append(o->Get(i));
         }
-        return result;
+        return const_cast<MutableListSequence<T>*>(this);
     }
 };
 
 template <typename T>
 class ImmutableListSequence : public ListSequence<T> {
 public:
-    using ListSequence<T>::ListSequence;
+    ImmutableListSequence(T* arr, int count)
+      : ListSequence<T>(arr, count) {}
+    ImmutableListSequence(const LinkedList<T>& linkedList)
+      : ListSequence<T>(linkedList) {}
+    ImmutableListSequence(const ImmutableListSequence<T>& o)
+      : ListSequence<T>(o) {}
 
-    virtual Sequence<T>* Append(T item) override {
-        auto* clone = new ImmutableListSequence<T>(*this);
-        clone->list->Append(item);
-        return clone;
+    Sequence<T>* Append(T v) override {
+        auto* c = new ImmutableListSequence<T>(*this);
+        c->list->Append(v);
+        return c;
     }
-    virtual Sequence<T>* Prepend(T item) override {
-        auto* clone = new ImmutableListSequence<T>(*this);
-        clone->list->Prepend(item);
-        return clone;
+    Sequence<T>* Prepend(T v) override {
+        auto* c = new ImmutableListSequence<T>(*this);
+        c->list->Prepend(v);
+        return c;
     }
-    virtual Sequence<T>* InsertAt(T item, int index) override {
-        auto* clone = new ImmutableListSequence<T>(*this);
-        clone->list->InsertAt(item, index);
-        return clone;
+    Sequence<T>* InsertAt(T v, int idx) override {
+        auto* c = new ImmutableListSequence<T>(*this);
+        c->list->InsertAt(v, idx);
+        return c;
     }
-    virtual Sequence<T>* Concat(const Sequence<T>* seq) const override {
-        auto* clone = new ImmutableListSequence<T>(*this);
-        for (int i = 0; i < seq->GetLength(); ++i) {
-            clone->list->Append(seq->Get(i));
+    Sequence<T>* Concat(const Sequence<T>* o) const override {
+        auto* c = new ImmutableListSequence<T>(*this);
+        for (int i = 0; i < o->GetLength(); ++i) {
+            c->list->Append(o->Get(i));
         }
-        return clone;
+        return c;
     }
 };
 
-#endif
+#endif 

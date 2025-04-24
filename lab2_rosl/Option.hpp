@@ -1,7 +1,7 @@
 #ifndef OPTION_HPP
 #define OPTION_HPP
 
-#include <stdexcept>
+#include "Error.hpp"
 
 template <typename T>
 class Option {
@@ -18,7 +18,7 @@ public:
     bool IsNone() const { return !hasValue; }
 
     T Unwrap() const {
-        if (!hasValue) throw std::runtime_error("Unwrap called on None");
+        if (!hasValue) throw Errors[RUNTIME_ERROR].message;
         return value;
     }
     T UnwrapOr(const T& defaultVal) const {
