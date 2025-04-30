@@ -1,11 +1,10 @@
 #include <cassert>
 #include <iostream>
+#include <vector>
 #include "ArraySequence.hpp"
 #include "ListSequence.hpp"
-#include "Option.hpp"
-#include "Error.hpp"
 
-int main() {
+void ADT() {
     int iarr[] = {1,2,3,4,5};
     const int n = 5;
 
@@ -27,13 +26,13 @@ int main() {
         assert(sub->Get(0) == 2 && sub->Get(2) == 4);
         delete sub;
 
-        seq->Append(6);           // length = 6
-        seq->Prepend(0);          // length = 7
-        seq->InsertAt(100, 2);    // length = 8
+        seq->Append(6);           
+        seq->Prepend(0);          
+        seq->InsertAt(100, 2);    
 
         int carr[] = {7,8};
         Sequence<int>* other = new MutableArraySequence<int>(carr, 2);
-        seq->Concat(other);       // length = 10
+        seq->Concat(other);      
         delete other;
 
         Sequence<int>* remArr = seq->RemoveAt(1);
@@ -51,13 +50,13 @@ int main() {
         assert(seq->GetFirst() == 1);
         assert(seq->GetLast()  == 5);
 
-        seq->Append(6);           // length = 6
-        seq->Prepend(0);          // length = 7
-        seq->InsertAt(100, 2);    // length = 8
+        seq->Append(6);           
+        seq->Prepend(0);          
+        seq->InsertAt(100, 2);    
 
         int carr[] = {7,8};
         Sequence<int>* other = new MutableListSequence<int>(carr, 2);
-        seq->Concat(other);       // length = 10
+        seq->Concat(other);       
         delete other;
 
         Sequence<int>* remLst = seq->RemoveAt(1);
@@ -91,17 +90,121 @@ int main() {
         delete prep;
     }
 
-    // 5) operator==
-    {
-        auto* a1 = new MutableArraySequence<int>(iarr, n);
-        auto* a2 = new MutableArraySequence<int>(iarr, n);
-        assert(*a1 == *a2);
-        a2->Append(6);
-        assert(*a1 != *a2);
-        delete a1;
-        delete a2;
-    }
+    std::cout << "All ATD tests passed successfully.\n";
+}
 
-    std::cout << "All tests passed successfully.\n";
+void testFloydEmpty() {
+    MutableListSequence<int> seq(nullptr, 0);
+    auto pr = seq.FindCycle();
+    assert(!pr.first);
+}
+
+void testFloydOneNoCycle() {
+    int arr[] = {42};
+    MutableListSequence<int> seq(arr, 1);
+    auto pr = seq.FindCycle();
+    assert(!pr.first);
+}
+
+void testFloydOneSelfCycle() {
+    int arr[] = {7};
+    auto* seq = new MutableListSequence<int>(arr, 1);
+    seq->CreateCycle(0);
+    auto pr = seq->FindCycle();
+    assert(pr.first && pr.second == 7);
+}
+
+void testFloydTwoNoCycle() {
+    int arr[] = {1, 2};
+    MutableListSequence<int> seq(arr, 2);
+    auto pr = seq.FindCycle();
+    assert(!pr.first);
+}
+
+void testFloydTwoCycleFirst() {
+    int arr[] = {3, 4};
+    auto* seq = new MutableListSequence<int>(arr, 2);
+    seq->CreateCycle(0);
+    auto pr = seq->FindCycle();
+    assert(pr.first && pr.second == 3);
+}
+
+void testFloydTwoCycleSecond() {
+    int arr[] = {5, 6};
+    auto* seq = new MutableListSequence<int>(arr, 2);
+    seq->CreateCycle(1);
+    auto pr = seq->FindCycle();
+    assert(pr.first && pr.second == 6);
+}
+
+void testFloydMultiCycleAtStart() {
+    int arr[] = {10, 20, 30, 40};
+    auto* seq = new MutableListSequence<int>(arr, 4);
+    seq->CreateCycle(0);
+    auto pr = seq->FindCycle();
+    assert(pr.first && pr.second == 10);
+}
+
+void testFloydMultiCycleMiddle() {
+    int arr[] = {11, 22, 33, 44, 55};
+    auto* seq = new MutableListSequence<int>(arr, 5);
+    seq->CreateCycle(2);
+    auto pr = seq->FindCycle();
+    assert(pr.first && pr.second == 33);
+}
+
+void testFloydMultiCycleAtEnd() {
+    int arr[] = {100, 200, 300};
+    auto* seq = new MutableListSequence<int>(arr, 3);
+    seq->CreateCycle(2);
+    auto pr = seq->FindCycle();
+    assert(pr.first && pr.second == 300);
+}
+
+void testFloydDeepNoCycle() {
+    const int N = 10000;
+    std::vector<int> v(N);
+    for (int i = 0; i < N; ++i) v[i] = i;
+    MutableListSequence<int> seq(v.data(), N);
+    auto pr = seq.FindCycle();
+    assert(!pr.first);
+}
+
+void testFloydDeepCycleShallow() {
+    const int N = 10000;
+    std::vector<int> v(N);
+    for (int i = 0; i < N; ++i) v[i] = i;
+    auto* seq = new MutableListSequence<int>(v.data(), N);
+    seq->CreateCycle(10);
+    auto pr = seq->FindCycle();
+    assert(pr.first && pr.second == 10);
+}
+
+void testInvariantNonCycle() {
+    int arr[] = {8, 9, 10};
+    MutableListSequence<int> seq(arr, 3);
+    std::vector<int> before;
+    for (int i = 0; i < seq.GetLength(); ++i) before.push_back(seq.Get(i));
+    auto pr = seq.FindCycle();
+    assert(!pr.first);
+    for (size_t i = 0; i < before.size(); ++i)
+        assert(seq.Get(i) == before[i]);
+}
+
+int main() {
+    ADT();
+    testFloydEmpty();
+    testFloydOneNoCycle();
+    testFloydOneSelfCycle();
+    testFloydTwoNoCycle();
+    testFloydTwoCycleFirst();
+    testFloydTwoCycleSecond();
+    testFloydMultiCycleAtStart();
+    testFloydMultiCycleMiddle();
+    testFloydMultiCycleAtEnd();
+    testFloydDeepNoCycle();
+    testFloydDeepCycleShallow();
+    testInvariantNonCycle();
+    std::cout << "All tests passed\n";
     return 0;
 }

@@ -4,124 +4,51 @@
 #include "Option.hpp"
 #include "Error.hpp"
 
-template <typename T>
+template<typename T>
 class LinkedList {
-private:
-    struct Node {
-        T      value;
-        Node*  next;
-        Node(const T& v) : value(v), next(nullptr) {}
-    };
-    Node* head;
-    int   len;
-
 public:
-    LinkedList() : head(nullptr), len(0) {}
+    struct Node { T value; Node* next; Node(const T& v): value(v), next(nullptr) {} };
+    Node* head;
 
-    LinkedList(T* arr, int count) : head(nullptr), len(0) {
-        for (int i = 0; i < count; ++i) {
-            Append(arr[i]);
+    LinkedList(): head(nullptr) {}
+    LinkedList(T* arr, int count): head(nullptr) { for(int i=0;i<count;++i) Append(arr[i]); }
+    LinkedList(const LinkedList<T>& o): head(nullptr) { for(Node* cur=o.head; cur; cur=cur->next) Append(cur->value); }
+    ~LinkedList(){ while(head){ Node* t=head; head=head->next; delete t; } }
+
+    void CreateCycle(int idx){
+        if(idx<0) throw Errors[INDEX_OUT_OF_RANGE].message;
+        Node* target=head;
+        for(int i=0;i<idx;++i){
+            if(!target) throw Errors[INDEX_OUT_OF_RANGE].message;
+            target=target->next;
         }
+        if(!target) throw Errors[INDEX_OUT_OF_RANGE].message;
+        Node* tail=head;
+        if(!tail) return;
+        while(tail->next) tail=tail->next;
+        tail->next=target;
     }
 
-    LinkedList(const LinkedList<T>& other) : head(nullptr), len(0) {
-        Node* curr = other.head;
-        while (curr) {
-            Append(curr->value);
-            curr = curr->next;
-        }
+    T GetFirst() const{ if(!head) throw Errors[INDEX_OUT_OF_RANGE].message; return head->value; }
+    T GetLast()  const{ if(!head) throw Errors[INDEX_OUT_OF_RANGE].message; Node* cur=head; while(cur->next) cur=cur->next; return cur->value; }
+    T Get(int i) const{ if(i<0) throw Errors[INDEX_OUT_OF_RANGE].message; Node* cur=head; while(cur && i--) cur=cur->next; if(!cur) throw Errors[INDEX_OUT_OF_RANGE].message; return cur->value; }
+    LinkedList<T>* GetSubList(int a,int b) const{
+        if(a<0||b<a) throw Errors[INDEX_OUT_OF_RANGE].message;
+        LinkedList<T>* res=new LinkedList<T>();
+        Node* cur=head;
+        for(int i=0;i<a;++i){ if(!cur) throw Errors[INDEX_OUT_OF_RANGE].message; cur=cur->next; }
+        for(int i=a;i<=b;++i){ if(!cur) throw Errors[INDEX_OUT_OF_RANGE].message; res->Append(cur->value); cur=cur->next; }
+        return res;
     }
+    int GetLength() const{ int c=0; for(Node* cur=head; cur; cur=cur->next) ++c; return c; }
 
-    ~LinkedList() {
-        while (head) {
-            Node* tmp = head;
-            head = head->next;
-            delete tmp;
-        }
-    }
+    void Append(T v){ Node* n=new Node(v); if(!head){ head=n; return; } Node* cur=head; while(cur->next) cur=cur->next; cur->next=n; }
+    void Prepend(T v){ Node* n=new Node(v); n->next=head; head=n; }
+    void InsertAt(T v,int i){ if(i<0) throw Errors[INDEX_OUT_OF_RANGE].message; if(i==0){ Prepend(v); return; } Node* cur=head; while(cur && --i) cur=cur->next; if(!cur) throw Errors[INDEX_OUT_OF_RANGE].message; Node* n=new Node(v); n->next=cur->next; cur->next=n; }
 
-    T GetFirst() const {
-        if (len == 0) throw Errors[INDEX_OUT_OF_RANGE].message;
-        return head->value;
-    }
-
-    T GetLast() const {
-        if (len == 0) throw Errors[INDEX_OUT_OF_RANGE].message;
-        Node* curr = head;
-        while (curr->next) curr = curr->next;
-        return curr->value;
-    }
-
-    T Get(int index) const {
-        if (index < 0 || index >= len) throw Errors[INDEX_OUT_OF_RANGE].message;
-        Node* curr = head;
-        for (int i = 0; i < index; ++i) curr = curr->next;
-        return curr->value;
-    }
-
-    LinkedList<T>* GetSubList(int start, int end) const {
-        if (start < 0 || end >= len || start > end) throw Errors[INDEX_OUT_OF_RANGE].message;
-        LinkedList<T>* sub = new LinkedList<T>();
-        Node* curr = head;
-        for (int i = 0; i < start; ++i) curr = curr->next;
-        for (int i = start; i <= end; ++i) {
-            sub->Append(curr->value);
-            curr = curr->next;
-        }
-        return sub;
-    }
-
-    int GetLength() const {
-        return len;
-    }
-
-    void Append(T item) {
-        Node* n = new Node(item);
-        if (!head) {
-            head = n;
-        } else {
-            Node* curr = head;
-            while (curr->next) curr = curr->next;
-            curr->next = n;
-        }
-        ++len;
-    }
-
-    void Prepend(T item) {
-        Node* n = new Node(item);
-        n->next = head;
-        head = n;
-        ++len;
-    }
-
-    void InsertAt(T item, int index) {
-        if (index < 0 || index > len) throw Errors[INDEX_OUT_OF_RANGE].message;
-        if (index == 0) {
-            Prepend(item);
-            return;
-        }
-        Node* curr = head;
-        for (int i = 0; i < index - 1; ++i) curr = curr->next;
-        Node* n = new Node(item);
-        n->next = curr->next;
-        curr->next = n;
-        ++len;
-    }
-
-    Option<T> TryGet(int index) const {
-        if (index < 0 || index >= len) return Option<T>::None();
-        return Option<T>::Some(Get(index));
-    }
-
-    Option<T> TryFirst() const {
-        if (len == 0) return Option<T>::None();
-        return Option<T>::Some(GetFirst());
-    }
-
-    Option<T> TryLast() const {
-        if (len == 0) return Option<T>::None();
-        return Option<T>::Some(GetLast());
-    }
+    Option<T> TryGet(int i) const{ try{ return Option<T>::Some(Get(i)); } catch(...){ return Option<T>::None(); } }
+    Option<T> TryFirst() const{ try{ return Option<T>::Some(GetFirst()); } catch(...){ return Option<T>::None(); } }
+    Option<T> TryLast()  const{ try{ return Option<T>::Some(GetLast());  } catch(...){ return Option<T>::None(); } }
 };
 
 #endif 
