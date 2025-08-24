@@ -54,6 +54,7 @@
         "typeinfo": "cpp",
         "variant": "cpp",
         "cstring": "cpp",
-        "map": "cpp"
+        "map": "cpp",
+        "list": "cpp"
     }
 }

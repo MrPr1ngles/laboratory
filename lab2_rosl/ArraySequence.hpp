@@ -1,148 +1,282 @@
-#ifndef ARRAYSEQUENCE_HPP
-#define ARRAYSEQUENCE_HPP
-
+#pragma once
 #include "Sequence.hpp"
 #include "DynamicArray.hpp"
-#include "Error.hpp"
+#include "Option.hpp"
+#include <stdexcept>
 
-template <typename T> class MutableArraySequence;
-template <typename T> class ImmutableArraySequence;
+template<typename T>
+class MutableArraySequence : public Sequence<T> {
+private:
+    DynamicArray<Option<T>> *data;
+    int length;
+    int capacity;
 
-template <typename T>
-class ArraySequence : public Sequence<T> {
-protected:
-    DynamicArray<T>* items;
+    void ensureCapacity(int minCap) {
+        if (minCap <= capacity) return;
+        int newCap = capacity;
+        while (newCap < minCap) {
+            newCap = newCap > 0 ? newCap * 2 : 1;
+        }
+        data->Resize(newCap);
+        for (int i = capacity; i < newCap; ++i) {
+            data->Set(i, Option<T>::None());
+        }
+        capacity = newCap;
+    }
+
 public:
-    ArraySequence(T* arr, int count)      { items = new DynamicArray<T>(arr, count); }
-    ArraySequence(const ArraySequence<T>& o){ items = new DynamicArray<T>(*o.items); }
-    ~ArraySequence() override             { delete items; }
+    MutableArraySequence()
+        : data(new DynamicArray<Option<T>>(1)), length(0), capacity(1) {
+        data->Set(0, Option<T>::None());
+    }
+
+    MutableArraySequence(T* items, int count)
+        : data(new DynamicArray<Option<T>>(count > 0 ? count : 1)),
+          length(count), capacity(count > 0 ? count : 1) {
+        for (int i = 0; i < length; ++i) {
+            data->Set(i, Option<T>::Some(items[i]));
+        }
+        for (int i = length; i < capacity; ++i) {
+            data->Set(i, Option<T>::None());
+        }
+    }
+
+    MutableArraySequence(const MutableArraySequence<T>& o)
+        : data(new DynamicArray<Option<T>>(o.capacity)),
+          length(o.length), capacity(o.capacity) {
+        for (int i = 0; i < capacity; ++i)
+            data->Set(i, o.data->Get(i));
+    }
+
+    ~MutableArraySequence() override {
+        delete data;
+    }
 
     T GetFirst() const override {
-        if (items->GetSize() == 0) throw Errors[INDEX_OUT_OF_RANGE].message;
-        return items->Get(0);
+        if (length == 0) throw std::out_of_range("GetFirst on empty");
+        return data->Get(0).Unwrap();
     }
-    T GetLast() const override {
-        int s = items->GetSize();
-        if (s == 0) throw Errors[INDEX_OUT_OF_RANGE].message;
-        return items->Get(s-1);
-    }
-    T Get(int i) const override { return items->Get(i); }
-    int GetLength() const override { return items->GetSize(); }
 
-    Sequence<T>* GetSubsequence(int a, int b) const override {
-        int s = items->GetSize();
-        if (a<0||b>=s||a>b) throw Errors[INDEX_OUT_OF_RANGE].message;
-        int len = b - a + 1;
-        T* tmp = new T[len];
-        for (int i = 0; i < len; ++i)
-            tmp[i] = items->Get(a + i);
-        Sequence<T>* seq = new MutableArraySequence<T>(tmp, len);
+    T GetLast() const override {
+        if (length == 0) throw std::out_of_range("GetLast on empty");
+        return data->Get(length - 1).Unwrap();
+    }
+
+    T Get(int index) const override {
+        if (index < 0 || index >= length)
+            throw std::out_of_range("Get index out of range");
+        return data->Get(index).Unwrap();
+    }
+
+    Option<T> TryGet(int index) const override {
+        if (index < 0 || index >= length) return Option<T>::None();
+        return data->Get(index);
+    }
+
+    Option<T> TryFirst() const override {
+        return length > 0 ? data->Get(0) : Option<T>::None();
+    }
+
+    Option<T> TryLast() const override {
+        return length > 0 ? data->Get(length - 1) : Option<T>::None();
+    }
+
+    int GetLength() const override {
+        return length;
+    }
+
+    Sequence<T>* GetSubsequence(int start, int end) const override {
+        if (start < 0 || end < start || end >= length)
+            throw std::out_of_range("Subsequence indices out of range");
+        int newLen = end - start + 1;
+        T* tmp = new T[newLen];
+        for (int i = 0; i < newLen; ++i) {
+            tmp[i] = data->Get(start + i).Unwrap();
+        }
+        auto* seq = new MutableArraySequence<T>(tmp, newLen);
         delete[] tmp;
         return seq;
     }
 
-    Option<T> TryGet(int i) const override {
-        if (i<0||i>=items->GetSize()) return Option<T>::None();
-        return Option<T>::Some(items->Get(i));
-    }
-    Option<T> TryFirst() const override {
-        if (items->GetSize()==0) return Option<T>::None();
-        return Option<T>::Some(items->Get(0));
-    }
-    Option<T> TryLast() const override {
-        int s = items->GetSize();
-        if (s==0) return Option<T>::None();
-        return Option<T>::Some(items->Get(s-1));
+    Sequence<T>* Append(T item) override {
+        ensureCapacity(length + 1);
+        data->Set(length, Option<T>::Some(item));
+        ++length;
+        return this;
     }
 
-    Sequence<T>* RemoveAt(int idx) override {
-        int s = items->GetSize();
-        if (idx < 0 || idx >= s) throw Errors[INDEX_OUT_OF_RANGE].message;
-        for (int i = idx; i + 1 < s; ++i)
-            items->Set(i, items->Get(i+1));
-        items->Resize(s-1);
+    Sequence<T>* Prepend(T item) override {
+        ensureCapacity(length + 1);
+        for (int i = length; i > 0; --i)
+            data->Set(i, data->Get(i - 1));
+        data->Set(0, Option<T>::Some(item));
+        ++length;
         return this;
     }
-    
-    Sequence<T>* Append(T) override = 0;
-    Sequence<T>* Prepend(T) override = 0;
-    Sequence<T>* InsertAt(T,int) override = 0;
-    Sequence<T>* Concat(const Sequence<T>*) const override = 0;
-};
 
-template <typename T>
-class MutableArraySequence : public ArraySequence<T> {
-public:
-    MutableArraySequence(T* arr,int count) : ArraySequence<T>(arr,count) {}
-    MutableArraySequence(const MutableArraySequence<T>& o) : ArraySequence<T>(o) {}
+    Sequence<T>* InsertAt(T item, int index) override {
+        if (index < 0 || index > length)
+            throw std::out_of_range("InsertAt index out of range");
+        ensureCapacity(length + 1);
+        for (int i = length; i > index; --i)
+            data->Set(i, data->Get(i - 1));
+        data->Set(index, Option<T>::Some(item));
+        ++length;
+        return this;
+    }
 
-    Sequence<T>* Append(T v) override {
-        int s = this->items->GetSize();
-        this->items->Resize(s+1);
-        this->items->Set(s, v);
+    Sequence<T>* RemoveAt(int index) override {
+        if (index < 0 || index >= length)
+            throw std::out_of_range("RemoveAt index out of range");
+        for (int i = index; i < length - 1; ++i)
+            data->Set(i, data->Get(i + 1));
+        --length;
+        data->Set(length, Option<T>::None());
         return this;
     }
-    Sequence<T>* Prepend(T v) override {
-        int s = this->items->GetSize();
-        this->items->Resize(s+1);
-        for(int i=s;i>0;--i) this->items->Set(i,this->items->Get(i-1));
-        this->items->Set(0,v);
-        return this;
-    }
-    Sequence<T>* InsertAt(T v,int idx) override {
-        int s = this->items->GetSize();
-        if (idx<0||idx> s) throw Errors[INDEX_OUT_OF_RANGE].message;
-        this->items->Resize(s+1);
-        for(int i=s;i>idx;--i) this->items->Set(i,this->items->Get(i-1));
-        this->items->Set(idx,v);
-        return this;
-    }
-    Sequence<T>* Concat(const Sequence<T>* o) const override {
-        int s1 = this->items->GetSize(), s2 = o->GetLength();
-        this->items->Resize(s1+s2);
-        for(int i=0;i<s2;++i) this->items->Set(s1+i,o->Get(i));
-        return const_cast<MutableArraySequence<T>*>(this);
+
+    Sequence<T>* Concat(const Sequence<T>* other) const override {
+        int total = length + other->GetLength();
+        T* tmp = new T[total];
+        for (int i = 0; i < length; ++i)
+            tmp[i] = data->Get(i).Unwrap();
+        for (int i = 0; i < other->GetLength(); ++i)
+            tmp[length + i] = other->Get(i);
+        auto* seq = new MutableArraySequence<T>(tmp, total);
+        delete[] tmp;
+        return seq;
     }
 };
 
-template <typename T>
-class ImmutableArraySequence : public ArraySequence<T> {
+template<typename T>
+class ImmutableArraySequence : public Sequence<T> {
+private:
+    DynamicArray<Option<T>> *data;
+    int length;
+    int capacity;
+
 public:
-    ImmutableArraySequence(T* arr,int count) : ArraySequence<T>(arr,count) {}
+    ImmutableArraySequence()
+        : data(new DynamicArray<Option<T>>(0)), length(0), capacity(0) {}
+
+    ImmutableArraySequence(T* items, int count)
+        : data(new DynamicArray<Option<T>>(count)), length(count), capacity(count) {
+        for (int i = 0; i < length; ++i)
+            data->Set(i, Option<T>::Some(items[i]));
+    }
+
     ImmutableArraySequence(const ImmutableArraySequence<T>& o)
-      : ArraySequence<T>(o) {}
+        : data(new DynamicArray<Option<T>>(o.capacity)),
+          length(o.length), capacity(o.capacity) {
+        for (int i = 0; i < capacity; ++i)
+            data->Set(i, o.data->Get(i));
+    }
 
-    Sequence<T>* Append(T v) override {
-        auto* c = new ImmutableArraySequence<T>(*this);
-        int s = c->items->GetSize();
-        c->items->Resize(s+1);
-        c->items->Set(s,v);
-        return c;
+    ~ImmutableArraySequence() override {
+        delete data;
     }
-    Sequence<T>* Prepend(T v) override {
-        auto* c = new ImmutableArraySequence<T>(*this);
-        int s = c->items->GetSize();
-        c->items->Resize(s+1);
-        for(int i=s;i>0;--i) c->items->Set(i,c->items->Get(i-1));
-        c->items->Set(0,v);
-        return c;
+
+    T GetFirst() const override {
+        if (length == 0) throw std::out_of_range("GetFirst on empty");
+        return data->Get(0).Unwrap();
     }
-    Sequence<T>* InsertAt(T v,int idx) override {
-        auto* c = new ImmutableArraySequence<T>(*this);
-        int s = c->items->GetSize();
-        if (idx<0||idx> s) throw Errors[INDEX_OUT_OF_RANGE].message;
-        c->items->Resize(s+1);
-        for(int i=s;i>idx;--i) c->items->Set(i,c->items->Get(i-1));
-        c->items->Set(idx,v);
-        return c;
+
+    T GetLast() const override {
+        if (length == 0) throw std::out_of_range("GetLast on empty");
+        return data->Get(length - 1).Unwrap();
     }
-    Sequence<T>* Concat(const Sequence<T>* o) const override {
-        auto* c = new ImmutableArraySequence<T>(*this);
-        int s1 = c->items->GetSize(), s2 = o->GetLength();
-        c->items->Resize(s1+s2);
-        for(int i=0;i<s2;++i) c->items->Set(s1+i,o->Get(i));
-        return c;
+
+    T Get(int index) const override {
+        if (index < 0 || index >= length)
+            throw std::out_of_range("Get index out of range");
+        return data->Get(index).Unwrap();
+    }
+
+    Option<T> TryGet(int index) const override {
+        if (index < 0 || index >= length) return Option<T>::None();
+        return data->Get(index);
+    }
+
+    Option<T> TryFirst() const override {
+        return length > 0 ? data->Get(0) : Option<T>::None();
+    }
+
+    Option<T> TryLast() const override {
+        return length > 0 ? data->Get(length - 1) : Option<T>::None();
+    }
+
+    int GetLength() const override {
+        return length;
+    }
+
+    Sequence<T>* GetSubsequence(int start, int end) const override {
+        if (start < 0 || end < start || end >= length)
+            throw std::out_of_range("Subsequence indices out of range");
+        int newLen = end - start + 1;
+        T* tmp = new T[newLen];
+        for (int i = 0; i < newLen; ++i)
+            tmp[i] = data->Get(start + i).Unwrap();
+        auto* seq = new ImmutableArraySequence<T>(tmp, newLen);
+        delete[] tmp;
+        return seq;
+    }
+
+    Sequence<T>* Append(T item) override {
+        T* tmp = new T[length + 1];
+        for (int i = 0; i < length; ++i)
+            tmp[i] = data->Get(i).Unwrap();
+        tmp[length] = item;
+        auto* seq = new ImmutableArraySequence<T>(tmp, length + 1);
+        delete[] tmp;
+        return seq;
+    }
+
+    Sequence<T>* Prepend(T item) override {
+        T* tmp = new T[length + 1];
+        tmp[0] = item;
+        for (int i = 0; i < length; ++i)
+            tmp[i + 1] = data->Get(i).Unwrap();
+        auto* seq = new ImmutableArraySequence<T>(tmp, length + 1);
+        delete[] tmp;
+        return seq;
+    }
+
+    Sequence<T>* InsertAt(T item, int index) override {
+        if (index < 0 || index > length)
+            throw std::out_of_range("InsertAt index out of range");
+        T* tmp = new T[length + 1];
+        for (int i = 0; i < index; ++i)
+            tmp[i] = data->Get(i).Unwrap();
+        tmp[index] = item;
+        for (int i = index; i < length; ++i)
+            tmp[i + 1] = data->Get(i).Unwrap();
+        auto* seq = new ImmutableArraySequence<T>(tmp, length + 1);
+        delete[] tmp;
+        return seq;
+    }
+
+    Sequence<T>* RemoveAt(int index) override {
+        if (index < 0 || index >= length)
+            throw std::out_of_range("RemoveAt index out of range");
+        T* tmp = new T[length - 1];
+        for (int i = 0, j = 0; i < length; ++i) {
+            if (i == index) continue;
+            tmp[j++] = data->Get(i).Unwrap();
+        }
+        auto* seq = new ImmutableArraySequence<T>(tmp, length - 1);
+        delete[] tmp;
+        return seq;
+    }
+
+    Sequence<T>* Concat(const Sequence<T>* other) const override {
+        int total = length + other->GetLength();
+        T* tmp = new T[total];
+        for (int i = 0; i < length; ++i)
+            tmp[i] = data->Get(i).Unwrap();
+        for (int i = 0; i < other->GetLength(); ++i)
+            tmp[length + i] = other->Get(i);
+        auto* seq = new ImmutableArraySequence<T>(tmp, total);
+        delete[] tmp;
+        return seq;
     }
 };
-
-#endif 
